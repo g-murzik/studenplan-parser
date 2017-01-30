@@ -5,11 +5,11 @@ import argparse
 import datetime
 
 class EventParser():
-    def __init__(self, fileInputPath, fileOutputPath, excludeGroup):
+    def __init__(self, fileInputPath, fileOutputPath, group: int, subgroup: str):
         with open(fileInputPath) as fin:
             self.data = json.load(fin)
-        with open(fileOutputPath, mode='x') as fout:
-            self.convertToIcs(fout, excludeGroup)
+        with open(fileOutputPath, mode='w') as fout:
+            self.convertToIcs(fout, group, subgroup)
 
     def writeEntry(self, d : dict, fout):
         fout.write("BEGIN:VEVENT\n")
@@ -29,12 +29,16 @@ class EventParser():
     def writeCalendarEnd(self, fout):
         fout.write("END:VCALENDAR")
 
-    def convertToIcs(self, fout, excludeGroup):
+    def convertToIcs(self, fout, group, subgroup):
         # some strings that could be used for filtering
+        unwantedGroup = (group % 2) + 1
         filterList = [
-            "Gruppe {}".format(excludeGroup),
-            "Gr. {}".format(excludeGroup),
-            "Gr.{}".format(excludeGroup)]
+            "Gruppe {}".format(unwantedGroup),
+            "Gr. {}".format(unwantedGroup),
+            "Gr.{}".format(unwantedGroup)]
+        if (subgroup != ''):
+            unwantedSubgroup = 'A' if (subgroup == 'B') else 'B'
+            filterList.append("Gruppe {}{}".format(group, unwantedSubgroup))
 
         self.writeCalendarStart(fout)
         for entry in self.data:
@@ -45,7 +49,7 @@ class EventParser():
             if (title == "PM/EA " or room == "---"):
                 continue
             # filter group
-            if (excludeGroup != 0 and containsPatterns(title, filterList)):
+            if (group != 0 and containsPatterns(title, filterList)):
                 continue
             self.writeEntry(entry, fout)
         self.writeCalendarEnd(fout)
@@ -67,9 +71,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("input", help=".json file to convert", type=str)
     parser.add_argument("output", help="new .ics file to create", type=str)
-    parser.add_argument("--exclude-group", help="group to exclude", type=int,
+    parser.add_argument("--group", help="include this group only", type=int,
                         choices=[1,2], default=0)
+    parser.add_argument("--subgroup", help="specify subgroup", type=str,
+                        choices=['A','B'], default='')
     args = parser.parse_args()
 
-    converter = EventParser(args.input, args.output, args.exclude_group)
+    converter = EventParser(args.input, args.output, args.group, args.subgroup)
     sys.exit(0)
